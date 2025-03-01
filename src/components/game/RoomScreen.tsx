@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { useGame } from '@/context/GameContext';
 import { Button } from '@/components/ui/button';
@@ -23,10 +22,8 @@ const RoomScreen: React.FC = () => {
   const boardRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Get current room data
   const room = currentRoom ? rooms.find(r => r.id === currentRoom) : null;
 
-  // Handle touch events for mobile controls
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
@@ -39,13 +36,10 @@ const RoomScreen: React.FC = () => {
     const diffX = touch.clientX - touchStartRef.current.x;
     const diffY = touch.clientY - touchStartRef.current.y;
     
-    // Determine swipe direction if the movement is significant enough
     if (Math.abs(diffX) > 30 || Math.abs(diffY) > 30) {
       if (Math.abs(diffX) > Math.abs(diffY)) {
-        // Horizontal swipe
         setDirection(diffX > 0 ? 'RIGHT' : 'LEFT');
       } else {
-        // Vertical swipe
         setDirection(diffY > 0 ? 'DOWN' : 'UP');
       }
       touchStartRef.current = null;
@@ -56,21 +50,18 @@ const RoomScreen: React.FC = () => {
     touchStartRef.current = null;
   };
 
-  // Set CSS variables for grid size
   useEffect(() => {
     if (boardRef.current && room) {
       boardRef.current.style.setProperty('--grid-size', room.gridSize.toString());
     }
   }, [room]);
 
-  // Start game automatically when component mounts
   useEffect(() => {
     if (!gameState.isPlaying && !gameState.gameOver) {
       startGame();
     }
   }, [gameState.isPlaying, gameState.gameOver, startGame]);
 
-  // Get skin class for snake cells
   const getSkinClass = (isHead: boolean) => {
     if (isHead) return 'snake-head';
     
@@ -87,7 +78,6 @@ const RoomScreen: React.FC = () => {
     return skinClasses[activeSkin] || 'snake-cell';
   };
 
-  // Get bot skin class
   const getBotSkinClass = (isHead: boolean, botId: number) => {
     const botColors = [
       'bg-red-500',
@@ -101,16 +91,59 @@ const RoomScreen: React.FC = () => {
     return isHead ? `bot-head ${botColors[colorIndex]}` : `bot-cell ${botColors[colorIndex]}`;
   };
 
-  // Create grid cells
   const renderGrid = () => {
     if (!room) return [];
     
     const grid = [];
     
-    // Create empty grid - we'll use a sparse grid to optimize rendering
-    // Only render cells that have content
+    for (let x = 0; x < room.gridSize; x++) {
+      grid.push(
+        <div 
+          key={`top-wall-${x}`} 
+          className="wall-cell"
+          style={{
+            gridColumn: x + 1,
+            gridRow: 1,
+          }}
+        />
+      );
+      
+      grid.push(
+        <div 
+          key={`bottom-wall-${x}`} 
+          className="wall-cell"
+          style={{
+            gridColumn: x + 1,
+            gridRow: room.gridSize,
+          }}
+        />
+      );
+    }
     
-    // Add snake cells
+    for (let y = 0; y < room.gridSize; y++) {
+      grid.push(
+        <div 
+          key={`left-wall-${y}`} 
+          className="wall-cell"
+          style={{
+            gridColumn: 1,
+            gridRow: y + 1,
+          }}
+        />
+      );
+      
+      grid.push(
+        <div 
+          key={`right-wall-${y}`} 
+          className="wall-cell"
+          style={{
+            gridColumn: room.gridSize,
+            gridRow: y + 1,
+          }}
+        />
+      );
+    }
+    
     for (let i = 0; i < gameState.snake.length; i++) {
       const segment = gameState.snake[i];
       const isHead = i === 0;
@@ -126,7 +159,6 @@ const RoomScreen: React.FC = () => {
       );
     }
     
-    // Add bot snake cells
     bots.forEach(bot => {
       bot.snake.forEach((segment, i) => {
         const isHead = i === 0;
@@ -143,7 +175,6 @@ const RoomScreen: React.FC = () => {
       });
     });
     
-    // Add food cells
     gameState.food.forEach((food, i) => {
       grid.push(
         <div 
@@ -161,14 +192,12 @@ const RoomScreen: React.FC = () => {
   };
 
   const handleExit = () => {
-    // Leave room
     setInRoomView(false);
     
-    // Update room player count
     if (currentRoom) {
-      const room = rooms.find(room => room.id === currentRoom);
-      if (room && room.players > 0) {
-        room.players -= 1;
+      const roomToUpdate = rooms.find(r => r.id === currentRoom);
+      if (roomToUpdate && roomToUpdate.players > 0) {
+        roomToUpdate.players -= 1;
       }
     }
   };
@@ -241,14 +270,12 @@ const RoomScreen: React.FC = () => {
         >
           {renderGrid()}
           
-          {/* Pause Overlay */}
           {gameState.isPaused && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10 animate-fade-in">
               <div className="text-white text-2xl font-bold">PAUSADO</div>
             </div>
           )}
           
-          {/* Game Over Overlay */}
           {gameState.gameOver && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-10 animate-fade-in">
               <div className="text-white text-3xl font-bold">FIM DE JOGO</div>

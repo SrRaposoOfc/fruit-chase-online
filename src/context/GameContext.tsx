@@ -1,3 +1,4 @@
+<lov-code>
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
@@ -272,8 +273,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let validPosition = false;
       
       while (!validPosition) {
-        const x = Math.floor(Math.random() * gridSize);
-        const y = Math.floor(Math.random() * gridSize);
+        // Ajustar para não gerar comida nas bordas do mapa em modo sala
+        const minPosition = inRoomView ? 2 : 0;
+        const maxPosition = inRoomView ? gridSize - 3 : gridSize - 1;
+        
+        const x = Math.floor(Math.random() * (maxPosition - minPosition + 1)) + minPosition;
+        const y = Math.floor(Math.random() * (maxPosition - minPosition + 1)) + minPosition;
         
         // Check if position is occupied by snake or existing food
         const isOccupied = gameState.snake.some(segment => segment.x === x && segment.y === y) ||
@@ -292,8 +297,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let validPosition = false;
       
       while (!validPosition) {
-        const x = Math.floor(Math.random() * gridSize);
-        const y = Math.floor(Math.random() * gridSize);
+        // Ajustar para não gerar comida nas bordas do mapa em modo sala
+        const minPosition = inRoomView ? 2 : 0;
+        const maxPosition = inRoomView ? gridSize - 3 : gridSize - 1;
+        
+        const x = Math.floor(Math.random() * (maxPosition - minPosition + 1)) + minPosition;
+        const y = Math.floor(Math.random() * (maxPosition - minPosition + 1)) + minPosition;
         
         // Check if position is occupied
         const isOccupied = gameState.snake.some(segment => segment.x === x && segment.y === y) ||
@@ -394,18 +403,39 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ? rooms.find(r => r.id === currentRoom)?.gridSize || gameState.gridSize
           : gameState.gridSize;
         
+        // Movimento com detecção de colisão com paredes para bots
         switch (newDirection) {
           case 'UP':
-            newHead.y = (head.y - 1 + gridSize) % gridSize;
+            newHead.y = head.y - 1;
+            // Se colidir com a parede, alterar direção
+            if (newHead.y < 1) {
+              newHead.y = 1;
+              newDirection = Math.random() < 0.5 ? 'LEFT' : 'RIGHT';
+            }
             break;
           case 'DOWN':
-            newHead.y = (head.y + 1) % gridSize;
+            newHead.y = head.y + 1;
+            // Se colidir com a parede, alterar direção
+            if (newHead.y >= gridSize - 1) {
+              newHead.y = gridSize - 2;
+              newDirection = Math.random() < 0.5 ? 'LEFT' : 'RIGHT';
+            }
             break;
           case 'LEFT':
-            newHead.x = (head.x - 1 + gridSize) % gridSize;
+            newHead.x = head.x - 1;
+            // Se colidir com a parede, alterar direção
+            if (newHead.x < 1) {
+              newHead.x = 1;
+              newDirection = Math.random() < 0.5 ? 'UP' : 'DOWN';
+            }
             break;
           case 'RIGHT':
-            newHead.x = (head.x + 1) % gridSize;
+            newHead.x = head.x + 1;
+            // Se colidir com a parede, alterar direção
+            if (newHead.x >= gridSize - 1) {
+              newHead.x = gridSize - 2;
+              newDirection = Math.random() < 0.5 ? 'UP' : 'DOWN';
+            }
             break;
         }
         
@@ -416,8 +446,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (selfCollision) {
           // Bot collided with itself, reset it
-          const x = Math.floor(Math.random() * gridSize);
-          const y = Math.floor(Math.random() * gridSize);
+          const x = Math.floor(Math.random() * (gridSize - 4)) + 2;
+          const y = Math.floor(Math.random() * (gridSize - 4)) + 2;
           
           return {
             ...bot,
@@ -576,19 +606,54 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ? rooms.find(r => r.id === currentRoom)?.gridSize || prevState.gridSize
         : prevState.gridSize;
 
-      switch (direction) {
-        case 'UP':
-          newHead.y = (head.y - 1 + gridSize) % gridSize;
-          break;
-        case 'DOWN':
-          newHead.y = (head.y + 1) % gridSize;
-          break;
-        case 'LEFT':
-          newHead.x = (head.x - 1 + gridSize) % gridSize;
-          break;
-        case 'RIGHT':
-          newHead.x = (head.x + 1) % gridSize;
-          break;
+      // Movimento com colisão de paredes quando estiver em uma sala
+      if (inRoomView) {
+        switch (direction) {
+          case 'UP':
+            newHead.y = head.y - 1;
+            // Verificar colisão com a parede superior
+            if (newHead.y < 1) {
+              return { ...prevState, gameOver: true };
+            }
+            break;
+          case 'DOWN':
+            newHead.y = head.y + 1;
+            // Verificar colisão com a parede inferior
+            if (newHead.y >= gridSize - 1) {
+              return { ...prevState, gameOver: true };
+            }
+            break;
+          case 'LEFT':
+            newHead.x = head.x - 1;
+            // Verificar colisão com a parede esquerda
+            if (newHead.x < 1) {
+              return { ...prevState, gameOver: true };
+            }
+            break;
+          case 'RIGHT':
+            newHead.x = head.x + 1;
+            // Verificar colisão com a parede direita
+            if (newHead.x >= gridSize - 1) {
+              return { ...prevState, gameOver: true };
+            }
+            break;
+        }
+      } else {
+        // Modo normal - atravessa as bordas
+        switch (direction) {
+          case 'UP':
+            newHead.y = (head.y - 1 + gridSize) % gridSize;
+            break;
+          case 'DOWN':
+            newHead.y = (head.y + 1) % gridSize;
+            break;
+          case 'LEFT':
+            newHead.x = (head.x - 1 + gridSize) % gridSize;
+            break;
+          case 'RIGHT':
+            newHead.x = (head.x + 1) % gridSize;
+            break;
+        }
       }
 
       // Check for collision with self
@@ -687,9 +752,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const startGame = useCallback(() => {
     if (gameState.isPlaying) return;
 
+    // Posição inicial segura para o jogador
+    const initialX = inRoomView ? Math.floor(Math.random() * 80) + 40 : 5;
+    const initialY = inRoomView ? Math.floor(Math.random() * 80) + 40 : 5;
+
     // Reset the game state
     setGameState({
       ...initialGameState,
+      snake: [{ x: initialX, y: initialY, type: 'SNAKE' }],
       food: generateFood(),
       isPlaying: true,
       isPaused: false,
@@ -881,95 +951,3 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setGameState((prev) => ({
         ...prev,
-        activePowerUps: [...prev.activePowerUps, activePowerUp],
-      }));
-
-      toast.success(`${powerUp.name} activated!`);
-    },
-    [user, gameState.activePowerUps]
-  );
-
-  // Change active skin
-  const changeSkin = useCallback(
-    (skinId: string) => {
-      if (!user || !user.purchasedSkins.includes(skinId)) return;
-
-      setActiveSkin(skinId);
-      updateUser({ activeSkin: skinId });
-      toast.success('Skin changed successfully');
-    },
-    [user, updateUser]
-  );
-
-  // Join room
-  const joinRoom = useCallback(
-    (roomId: number) => {
-      const room = rooms.find((r) => r.id === roomId);
-      
-      if (!room) {
-        toast.error('Sala não encontrada');
-        return;
-      }
-      
-      if (room.players >= room.maxPlayers) {
-        toast.error('Sala está cheia');
-        return;
-      }
-      
-      setCurrentRoom(roomId);
-      setInRoomView(true);
-      
-      // Update room player count
-      setRooms((prevRooms) =>
-        prevRooms.map((r) =>
-          r.id === roomId ? { ...r, players: r.players + 1 } : r
-        )
-      );
-      
-      // Gerar sempre exatamente 2 bots para a sala
-      const newBots = generateBots(roomId);
-      setBots(newBots);
-      
-      toast.success(`Entrou na Sala ${roomId} com ${newBots.length} cobrinhas bots!`);
-    },
-    [rooms, generateBots]
-  );
-
-  return (
-    <GameContext.Provider
-      value={{
-        gameState,
-        startGame,
-        pauseGame,
-        resumeGame,
-        restartGame,
-        setDirection,
-        availablePowerUps,
-        availableSkins,
-        buyPowerUp,
-        buySkin,
-        activatePowerUp,
-        changeSkin,
-        activeSkin,
-        leaderboard,
-        rooms,
-        joinRoom,
-        currentRoom,
-        inRoomView,
-        setInRoomView,
-        bots,
-        checkCollisionWithBots,
-      }}
-    >
-      {children}
-    </GameContext.Provider>
-  );
-};
-
-export const useGame = () => {
-  const context = useContext(GameContext);
-  if (context === undefined) {
-    throw new Error('useGame must be used within a GameProvider');
-  }
-  return context;
-};
