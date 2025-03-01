@@ -1,146 +1,209 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
+ 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 240 10% 3.9%;
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-
+    --card-foreground: 222.2 84% 4.9%;
+ 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-
-    --primary: 221 83% 53%;
+    --popover-foreground: 222.2 84% 4.9%;
+ 
+    --primary: 222.2 47.4% 11.2%;
     --primary-foreground: 210 40% 98%;
-
-    --secondary: 220 14.3% 95.9%;
-    --secondary-foreground: 220.9 39.3% 11%;
-
-    --muted: 220 14.3% 95.9%;
-    --muted-foreground: 220 8.9% 46.1%;
-
-    --accent: 220 14.3% 95.9%;
-    --accent-foreground: 220.9 39.3% 11%;
-
+ 
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+ 
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+ 
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+ 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 224 71.4% 4.1%;
-
-    --snake: 160 84% 39%;
-    --snake-foreground: 210 40% 98%;
-    --snake-apple: 1 90% 64%;
-    --snake-lemon: 54 100% 62%;
-    --snake-border: 220 13% 91%;
-    --snake-grid: 220 14.3% 95.9%;
-
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+ 
     --radius: 0.5rem;
+    
+    --snake: 160 100% 40%;
   }
-
+ 
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+ 
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+ 
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+ 
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+ 
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+ 
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+ 
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+ 
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    
+    --snake: 160 100% 40%;
+  }
+}
+ 
+@layer base {
   * {
     @apply border-border;
-    box-sizing: border-box;
   }
-
-  html, body {
-    height: 100%;
-    width: 100%;
-    font-family: 'Inter', sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
   body {
     @apply bg-background text-foreground;
-    margin: 0;
-    padding: 0;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  #root {
-    width: 100%;
-    height: 100%;
-    min-height: 100vh;
   }
 }
 
-@layer components {
-  /* Transitions */
-  .transition-smooth {
-    @apply transition-all duration-300 ease-out;
-  }
+/* Game Grid Styles */
+.game-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-size), 1fr);
+  grid-template-rows: repeat(var(--grid-size), 1fr);
+  position: relative;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  background-color: rgba(0, 0, 0, 0.03);
+}
 
-  /* Glass effect */
-  .glass {
-    @apply bg-white/80 backdrop-blur-xl border border-white/20 shadow-sm;
-  }
+.room-game-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-size), 1fr);
+  grid-template-rows: repeat(var(--grid-size), 1fr);
+  position: relative;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  background-color: rgba(0, 0, 0, 0.03);
+}
 
-  /* Page transitions */
-  .page-enter {
-    @apply opacity-0;
-  }
-  .page-enter-active {
-    @apply opacity-100 transition-opacity duration-300;
-  }
-  .page-exit {
-    @apply opacity-100;
-  }
-  .page-exit-active {
-    @apply opacity-0 transition-opacity duration-300;
-  }
+.grid-cell {
+  width: 100%;
+  height: 100%;
+}
 
-  /* Button styles */
-  .btn-hover {
-    @apply hover:translate-y-[-2px] hover:shadow-md active:translate-y-[0px] active:shadow-sm;
-  }
+.snake-cell {
+  background-color: hsl(var(--snake));
+  border-radius: 1px;
+}
 
-  /* Game grid */
-  .game-grid {
-    display: grid;
-    grid-template-columns: repeat(var(--grid-size), 1fr);
-    grid-template-rows: repeat(var(--grid-size), 1fr);
-    gap: 2px;
-    background-color: hsl(var(--snake-grid));
-    border-radius: var(--radius);
-    border: 1px solid hsl(var(--snake-border));
-    overflow: hidden;
-  }
+.snake-head {
+  background-color: hsl(var(--snake));
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
 
-  .grid-cell {
-    aspect-ratio: 1/1;
-    background-color: transparent;
-    border-radius: 2px;
-    transition: background-color 0.1s ease;
-  }
+.bot-cell {
+  border-radius: 1px;
+}
 
-  .snake-cell {
-    background-color: hsl(var(--snake));
-    border-radius: 2px;
-  }
+.bot-head {
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
 
-  .snake-head {
-    background-color: hsl(var(--snake));
-    border-radius: 3px;
-  }
+.apple-cell {
+  background-color: #e74c3c;
+  border-radius: 50%;
+}
 
-  .apple-cell {
-    background-color: hsl(var(--snake-apple));
-    border-radius: 50%;
-    transform: scale(0.8);
-  }
+.lemon-cell {
+  background-color: #f1c40f;
+  border-radius: 50%;
+}
 
-  .lemon-cell {
-    background-color: hsl(var(--snake-lemon));
-    border-radius: 50%;
-    transform: scale(0.8);
-  }
+/* Animation Classes */
+@keyframes rgb-shift {
+  0% { background-color: #f56565; }
+  25% { background-color: #ed64a6; }
+  50% { background-color: #9f7aea; }
+  75% { background-color: #4299e1; }
+  100% { background-color: #48bb78; }
+}
+
+@keyframes fire {
+  0% { background-color: #f56565; }
+  50% { background-color: #ed8936; }
+  100% { background-color: #f56565; }
+}
+
+@keyframes ice {
+  0% { background-color: #63b3ed; }
+  50% { background-color: #90cdf4; }
+  100% { background-color: #63b3ed; }
+}
+
+@keyframes stars {
+  0% { background-color: #4c51bf; }
+  50% { background-color: #667eea; }
+  100% { background-color: #4c51bf; }
+}
+
+@keyframes shine {
+  0% { filter: brightness(0.9); }
+  50% { filter: brightness(1.2); }
+  100% { filter: brightness(0.9); }
+}
+
+.animate-rgb-shift {
+  animation: rgb-shift 3s infinite;
+}
+
+.animate-fire {
+  animation: fire 1s infinite;
+}
+
+.animate-ice {
+  animation: ice 2s infinite;
+}
+
+.animate-stars {
+  animation: stars 3s infinite;
+}
+
+.animate-shine {
+  animation: shine 1.5s infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+.animate-bounce {
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }

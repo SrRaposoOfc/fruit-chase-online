@@ -5,12 +5,13 @@ import { toast } from 'sonner';
 
 // Types
 export type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
-export type CellType = 'EMPTY' | 'SNAKE' | 'APPLE' | 'LEMON';
+export type CellType = 'EMPTY' | 'SNAKE' | 'APPLE' | 'LEMON' | 'BOT_SNAKE';
 
 export interface Cell {
   x: number;
   y: number;
   type: CellType;
+  botId?: number;
 }
 
 export interface PowerUp {
@@ -30,6 +31,26 @@ export interface Skin {
   description: string;
   price: number;
   className: string;
+}
+
+export interface Bot {
+  id: number;
+  snake: Cell[];
+  direction: Direction;
+  score: number;
+  name: string;
+}
+
+export interface Room {
+  id: number;
+  players: number;
+  maxPlayers: number;
+  bots: Bot[];
+  topPlayer?: {
+    username: string;
+    score: number;
+  };
+  gridSize: number;
 }
 
 interface GameState {
@@ -62,9 +83,13 @@ interface GameContextType {
   changeSkin: (skinId: string) => void;
   activeSkin: string;
   leaderboard: { username: string; highScore: number; totalScore: number }[];
-  rooms: { id: number; players: number; maxPlayers: number }[];
+  rooms: Room[];
   joinRoom: (roomId: number) => void;
   currentRoom: number | null;
+  inRoomView: boolean;
+  setInRoomView: (inRoom: boolean) => void;
+  bots: Bot[];
+  checkCollisionWithBots: (head: Cell) => boolean;
 }
 
 // Initial game state
@@ -141,23 +166,35 @@ const skins: Skin[] = [
     price: 1000,
     className: 'bg-purple-500 animate-rgb-shift',
   },
+  {
+    id: 'fire',
+    name: 'Fire Snake',
+    description: 'A blazing hot snake',
+    price: 500,
+    className: 'bg-orange-500 animate-fire',
+  },
+  {
+    id: 'ice',
+    name: 'Ice Snake',
+    description: 'A freezing cold snake',
+    price: 450,
+    className: 'bg-blue-300 animate-ice',
+  },
+  {
+    id: 'galaxy',
+    name: 'Galaxy Snake',
+    description: 'A cosmic snake from the stars',
+    price: 750,
+    className: 'bg-indigo-600 animate-stars',
+  },
+  {
+    id: 'gold',
+    name: 'Golden Snake',
+    description: 'A luxurious gold-plated snake',
+    price: 850,
+    className: 'bg-yellow-500 animate-shine',
+  },
 ];
-
-// Mock leaderboard data
-const mockLeaderboard = [
-  { username: 'player1', highScore: 120, totalScore: 1500 },
-  { username: 'player2', highScore: 95, totalScore: 2100 },
-  { username: 'snake_master', highScore: 200, totalScore: 4500 },
-  { username: 'apple_eater', highScore: 150, totalScore: 3200 },
-  { username: 'gamer123', highScore: 85, totalScore: 1700 },
-];
-
-// Mock room data
-const mockRooms = Array.from({ length: 10 }, (_, i) => ({
-  id: i + 1,
-  players: Math.floor(Math.random() * 15),
-  maxPlayers: 20,
-}));
 
 // Create context
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -167,9 +204,34 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [gameState, setGameState] = useState<GameState>(initialGameState);
   const [gameInterval, setGameInterval] = useState<NodeJS.Timeout | null>(null);
   const [activeSkin, setActiveSkin] = useState<string>('default');
-  const [leaderboard, setLeaderboard] = useState(mockLeaderboard);
-  const [rooms, setRooms] = useState(mockRooms);
+  const [leaderboard, setLeaderboard] = useState<{ username: string; highScore: number; totalScore: number }[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [currentRoom, setCurrentRoom] = useState<number | null>(null);
+  const [inRoomView, setInRoomView] = useState(false);
+  const [bots, setBots] = useState<Bot[]>([]);
+
+  // Initialize rooms with real player counts (all zero initially)
+  useEffect(() => {
+    const initialRooms = Array.from({ length: 10 }, (_, i) => ({
+      id: i + 1,
+      players: 0,
+      maxPlayers: 20,
+      bots: [],
+      gridSize: 126,
+    }));
+    setRooms(initialRooms);
+    
+    // Initialize leaderboard with only the current user if authenticated
+    if (user) {
+      setLeaderboard([{
+        username: user.username,
+        highScore: user.highScore,
+        totalScore: user.totalScore
+      }]);
+    } else {
+      setLeaderboard([]);
+    }
+  }, [user]);
 
   // Get purchased power-ups and skins
   const availablePowerUps = powerUps.filter(
@@ -184,10 +246,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (user) {
       setActiveSkin(user.activeSkin);
-      // Simulate random players online
+      // Set a realistic number of players online
       setGameState((prev) => ({
         ...prev,
-        playersOnline: Math.floor(Math.random() * 50) + 10,
+        playersOnline: Math.floor(Math.random() * 10) + 1,
       }));
     }
   }, [user]);
@@ -196,18 +258,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const generateFood = useCallback(() => {
     const numApples = gameState.snake.length > 10 ? 2 : 1;
     const newFood: Cell[] = [];
+    const gridSize = inRoomView && currentRoom 
+      ? rooms.find(r => r.id === currentRoom)?.gridSize || gameState.gridSize
+      : gameState.gridSize;
 
     for (let i = 0; i < numApples; i++) {
       let newFoodCell: Cell;
       let validPosition = false;
 
       while (!validPosition) {
-        const x = Math.floor(Math.random() * gameState.gridSize);
-        const y = Math.floor(Math.random() * gameState.gridSize);
+        const x = Math.floor(Math.random() * gridSize);
+        const y = Math.floor(Math.random() * gridSize);
         
         // Check if position is occupied by snake or existing food
         const isOccupied = gameState.snake.some(segment => segment.x === x && segment.y === y) ||
-                          newFood.some(food => food.x === x && food.y === y);
+                          newFood.some(food => food.x === x && food.y === y) ||
+                          bots.some(bot => bot.snake.some(segment => segment.x === x && segment.y === y));
         
         if (!isOccupied) {
           validPosition = true;
@@ -224,7 +290,220 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     return newFood;
-  }, [gameState.gridSize, gameState.snake, gameState.score]);
+  }, [gameState.gridSize, gameState.snake, gameState.score, bots, inRoomView, currentRoom, rooms]);
+
+  // Generate bots for a room
+  const generateBots = useCallback((roomId: number, numBots: number) => {
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return [];
+    
+    const botNames = ['BotPython', 'BotCobra', 'BotViper', 'BotAnaconda', 'BotMamba'];
+    const newBots: Bot[] = [];
+    
+    for (let i = 0; i < numBots; i++) {
+      // Place bot in random position
+      const x = Math.floor(Math.random() * room.gridSize);
+      const y = Math.floor(Math.random() * room.gridSize);
+      
+      // Random direction
+      const directions: Direction[] = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+      const randomDirection = directions[Math.floor(Math.random() * directions.length)];
+      
+      newBots.push({
+        id: i + 1,
+        snake: [{ x, y, type: 'BOT_SNAKE', botId: i + 1 }],
+        direction: randomDirection,
+        score: 0,
+        name: botNames[i % botNames.length],
+      });
+    }
+    
+    return newBots;
+  }, [rooms]);
+
+  // Move bots
+  const moveBots = useCallback(() => {
+    if (!inRoomView) return;
+    
+    setBots(prevBots => {
+      return prevBots.map(bot => {
+        // Calculate new head position
+        const head = bot.snake[0];
+        let newDirection = bot.direction;
+        
+        // Occasionally change direction (10% chance)
+        if (Math.random() < 0.1) {
+          const directions: Direction[] = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+          // Filter out opposite direction to prevent 180-degree turns
+          const validDirections = directions.filter(dir => {
+            if (newDirection === 'UP' && dir === 'DOWN') return false;
+            if (newDirection === 'DOWN' && dir === 'UP') return false;
+            if (newDirection === 'LEFT' && dir === 'RIGHT') return false;
+            if (newDirection === 'RIGHT' && dir === 'LEFT') return false;
+            return true;
+          });
+          newDirection = validDirections[Math.floor(Math.random() * validDirections.length)];
+        }
+        
+        // If food exists, try to move towards it (80% chance)
+        if (gameState.food.length > 0 && Math.random() < 0.8) {
+          const closestFood = gameState.food[0];
+          
+          // Simple pathfinding towards food
+          if (closestFood.x < head.x && newDirection !== 'RIGHT') {
+            newDirection = 'LEFT';
+          } else if (closestFood.x > head.x && newDirection !== 'LEFT') {
+            newDirection = 'RIGHT';
+          } else if (closestFood.y < head.y && newDirection !== 'DOWN') {
+            newDirection = 'UP';
+          } else if (closestFood.y > head.y && newDirection !== 'UP') {
+            newDirection = 'DOWN';
+          }
+        }
+        
+        // Calculate new head position
+        let newHead: Cell = { 
+          x: head.x, 
+          y: head.y, 
+          type: 'BOT_SNAKE',
+          botId: bot.id
+        };
+        
+        const gridSize = currentRoom 
+          ? rooms.find(r => r.id === currentRoom)?.gridSize || gameState.gridSize
+          : gameState.gridSize;
+        
+        switch (newDirection) {
+          case 'UP':
+            newHead.y = (head.y - 1 + gridSize) % gridSize;
+            break;
+          case 'DOWN':
+            newHead.y = (head.y + 1) % gridSize;
+            break;
+          case 'LEFT':
+            newHead.x = (head.x - 1 + gridSize) % gridSize;
+            break;
+          case 'RIGHT':
+            newHead.x = (head.x + 1) % gridSize;
+            break;
+        }
+        
+        // Check for collision with self
+        const selfCollision = bot.snake.some(
+          (segment, i) => i !== 0 && segment.x === newHead.x && segment.y === newHead.y
+        );
+        
+        if (selfCollision) {
+          // Bot collided with itself, reset it
+          const x = Math.floor(Math.random() * gridSize);
+          const y = Math.floor(Math.random() * gridSize);
+          
+          return {
+            ...bot,
+            snake: [{ x, y, type: 'BOT_SNAKE', botId: bot.id }],
+            score: 0,
+          };
+        }
+        
+        // Check for food collision
+        const foodIndex = gameState.food.findIndex(
+          (f) => f.x === newHead.x && f.y === newHead.y
+        );
+        
+        let newSnake = [newHead, ...bot.snake];
+        let newScore = bot.score;
+        
+        if (foodIndex >= 0) {
+          const foodItem = gameState.food[foodIndex];
+          // Points calculation
+          const pointValue = foodItem.type === 'LEMON' ? 10 : 1;
+          newScore += pointValue;
+          
+          // Remove eaten food from game state
+          setGameState(prev => ({
+            ...prev,
+            food: prev.food.filter((_, i) => i !== foodIndex)
+          }));
+          
+          // Generate new food if all food is eaten
+          if (gameState.food.length <= 1) {
+            setGameState(prev => ({
+              ...prev,
+              food: [...prev.food, ...generateFood()]
+            }));
+          }
+        } else {
+          // Remove tail if no food eaten
+          newSnake.pop();
+        }
+        
+        return {
+          ...bot,
+          snake: newSnake,
+          direction: newDirection,
+          score: newScore,
+        };
+      });
+    });
+  }, [inRoomView, gameState.food, generateFood, currentRoom, rooms]);
+
+  // Handle bot movement timer
+  useEffect(() => {
+    if (!inRoomView || bots.length === 0) return;
+    
+    const botMovementTimer = setInterval(moveBots, 300); // Bots move slightly slower than player
+    
+    return () => clearInterval(botMovementTimer);
+  }, [inRoomView, bots.length, moveBots]);
+
+  // Check for collision with bots
+  const checkCollisionWithBots = useCallback((head: Cell) => {
+    // Check if player's head collides with any bot body part
+    for (const bot of bots) {
+      for (const segment of bot.snake) {
+        if (segment.x === head.x && segment.y === head.y) {
+          // Player collided with bot
+          if (user) {
+            // Give bot the player's points
+            setBots(prevBots => 
+              prevBots.map(b => 
+                b.id === bot.id 
+                  ? { ...b, score: b.score + gameState.score } 
+                  : b
+              )
+            );
+            
+            // Update room's top player if this bot now has the highest score
+            if (currentRoom) {
+              setRooms(prevRooms => 
+                prevRooms.map(room => 
+                  room.id === currentRoom 
+                    ? { 
+                        ...room, 
+                        topPlayer: {
+                          username: bot.name,
+                          score: bot.score + gameState.score
+                        }
+                      } 
+                    : room
+                )
+              );
+            }
+            
+            // Update high score if needed
+            const highScore = Math.max(user.highScore, gameState.score);
+            const totalScore = user.totalScore + gameState.score;
+            
+            updateUser({ highScore, totalScore });
+          }
+          
+          toast.error(`You collided with ${bot.name}! They stole your points!`);
+          return true;
+        }
+      }
+    }
+    return false;
+  }, [bots, gameState.score, currentRoom, user, updateUser]);
 
   // Handle power-up timers
   useEffect(() => {
@@ -271,18 +550,23 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const head = prevState.snake[0];
       let newHead: Cell = { x: head.x, y: head.y, type: 'SNAKE' };
 
+      // Use the appropriate grid size based on whether we're in a room
+      const gridSize = inRoomView && currentRoom 
+        ? rooms.find(r => r.id === currentRoom)?.gridSize || prevState.gridSize
+        : prevState.gridSize;
+
       switch (direction) {
         case 'UP':
-          newHead.y = (head.y - 1 + prevState.gridSize) % prevState.gridSize;
+          newHead.y = (head.y - 1 + gridSize) % gridSize;
           break;
         case 'DOWN':
-          newHead.y = (head.y + 1) % prevState.gridSize;
+          newHead.y = (head.y + 1) % gridSize;
           break;
         case 'LEFT':
-          newHead.x = (head.x - 1 + prevState.gridSize) % prevState.gridSize;
+          newHead.x = (head.x - 1 + gridSize) % gridSize;
           break;
         case 'RIGHT':
-          newHead.x = (head.x + 1) % prevState.gridSize;
+          newHead.x = (head.x + 1) % gridSize;
           break;
       }
 
@@ -295,13 +579,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (segment, i) => i !== 0 && segment.x === newHead.x && segment.y === newHead.y
       );
 
-      if (selfCollision && !hasImmunity) {
+      // Check for collision with bots
+      const botCollision = inRoomView && checkCollisionWithBots(newHead);
+
+      if ((selfCollision || botCollision) && !hasImmunity) {
         if (user) {
           const highScore = Math.max(user.highScore, prevState.score);
           const totalScore = user.totalScore + prevState.score;
           const points = user.points + prevState.score;
           
           updateUser({ highScore, totalScore, points });
+          
+          // Update room's top player if player has the highest score
+          if (currentRoom && prevState.score > (rooms.find(r => r.id === currentRoom)?.topPlayer?.score || 0)) {
+            setRooms(prevRooms => 
+              prevRooms.map(room => 
+                room.id === currentRoom 
+                  ? { 
+                      ...room, 
+                      topPlayer: {
+                        username: user.username,
+                        score: prevState.score
+                      }
+                    } 
+                  : room
+              )
+            );
+          }
         }
         
         return { ...prevState, gameOver: true };
@@ -356,7 +660,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         score: newScore,
       };
     });
-  }, [generateFood, user, updateUser]);
+  }, [generateFood, user, updateUser, inRoomView, currentRoom, rooms, checkCollisionWithBots]);
 
   // Start the game
   const startGame = useCallback(() => {
@@ -369,12 +673,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isPlaying: true,
       isPaused: false,
       gameOver: false,
+      gridSize: inRoomView && currentRoom 
+        ? rooms.find(r => r.id === currentRoom)?.gridSize || initialGameState.gridSize
+        : initialGameState.gridSize,
     });
 
     // Start the game interval
     const interval = setInterval(gameLoop, gameState.speed);
     setGameInterval(interval);
-  }, [gameState.isPlaying, gameState.speed, gameLoop, generateFood]);
+  }, [gameState.isPlaying, gameState.speed, gameLoop, generateFood, inRoomView, currentRoom, rooms]);
 
   // Pause the game
   const pauseGame = useCallback(() => {
@@ -408,11 +715,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       food: newFood,
       isPlaying: true,
       isPaused: false,
+      gridSize: inRoomView && currentRoom 
+        ? rooms.find(r => r.id === currentRoom)?.gridSize || initialGameState.gridSize
+        : initialGameState.gridSize,
     });
     
     const interval = setInterval(gameLoop, initialGameState.speed);
     setGameInterval(interval);
-  }, [gameInterval, gameLoop, generateFood]);
+  }, [gameInterval, gameLoop, generateFood, inRoomView, currentRoom, rooms]);
 
   // Change direction
   const setDirection = useCallback((newDirection: Direction) => {
@@ -586,6 +896,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       setCurrentRoom(roomId);
+      setInRoomView(true);
       
       // Update room player count
       setRooms((prevRooms) =>
@@ -594,9 +905,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         )
       );
       
-      toast.success(`Joined Room ${roomId}`);
+      // Generate bots for the room (1-5 bots randomly)
+      const numBots = Math.floor(Math.random() * 5) + 1;
+      const newBots = generateBots(roomId, numBots);
+      setBots(newBots);
+      
+      toast.success(`Joined Room ${roomId} with ${numBots} bot snakes!`);
     },
-    [rooms]
+    [rooms, generateBots]
   );
 
   return (
@@ -619,6 +935,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         rooms,
         joinRoom,
         currentRoom,
+        inRoomView,
+        setInRoomView,
+        bots,
+        checkCollisionWithBots,
       }}
     >
       {children}

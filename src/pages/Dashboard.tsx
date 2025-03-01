@@ -9,12 +9,18 @@ import PowerUps from '@/components/game/PowerUps';
 import Skins from '@/components/game/Skins';
 import Leaderboard from '@/components/game/Leaderboard';
 import RoomSelector from '@/components/game/RoomSelector';
+import RoomScreen from '@/components/game/RoomScreen';
 import { useGame } from '@/context/GameContext';
 import { Users } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('game');
-  const { gameState } = useGame();
+  const { gameState, inRoomView } = useGame();
+
+  // If we're in a room view, show the room screen instead of the dashboard
+  if (inRoomView) {
+    return <RoomScreen />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
