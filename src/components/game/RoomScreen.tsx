@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { useGame } from '@/context/GameContext';
 import { Button } from '@/components/ui/button';
@@ -183,7 +184,7 @@ const RoomScreen: React.FC = () => {
             onClick={handleExit}
           >
             <ArrowLeft className="h-4 w-4" />
-            Exit Room
+            Sair da Sala
           </Button>
           
           <div className="flex items-center gap-4">
@@ -196,7 +197,7 @@ const RoomScreen: React.FC = () => {
             
             <Card className="bg-muted/50 flex items-center p-2 h-9">
               <Users className="h-4 w-4 mr-1" />
-              <span className="text-sm">{room?.players || 0} Players</span>
+              <span className="text-sm">{room?.players || 0} Jogadores</span>
             </Card>
           </div>
         </div>
@@ -205,7 +206,7 @@ const RoomScreen: React.FC = () => {
       <main className="flex-1 container py-6 flex flex-col items-center">
         <div className="flex justify-between w-full max-w-5xl mb-4">
           <Card className="bg-muted/50 p-3">
-            <div className="text-sm text-muted-foreground">Score</div>
+            <div className="text-sm text-muted-foreground">Pontuação</div>
             <div className="text-2xl font-bold">{gameState.score}</div>
           </Card>
           
@@ -243,16 +244,16 @@ const RoomScreen: React.FC = () => {
           {/* Pause Overlay */}
           {gameState.isPaused && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10 animate-fade-in">
-              <div className="text-white text-2xl font-bold">PAUSED</div>
+              <div className="text-white text-2xl font-bold">PAUSADO</div>
             </div>
           )}
           
           {/* Game Over Overlay */}
           {gameState.gameOver && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-10 animate-fade-in">
-              <div className="text-white text-3xl font-bold mb-4">GAME OVER</div>
+              <div className="text-white text-3xl font-bold">FIM DE JOGO</div>
               <Button onClick={restartGame} size="lg" className="animate-bounce">
-                Play Again
+                Jogar Novamente
               </Button>
             </div>
           )}

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
@@ -217,7 +216,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       players: 0,
       maxPlayers: 20,
       bots: [],
-      gridSize: 126,
+      gridSize: 160,
     }));
     setRooms(initialRooms);
     
@@ -256,16 +255,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Generate food
   const generateFood = useCallback(() => {
-    const numApples = gameState.snake.length > 10 ? 2 : 1;
-    const newFood: Cell[] = [];
+    let newFood: Cell[] = [];
     const gridSize = inRoomView && currentRoom 
       ? rooms.find(r => r.id === currentRoom)?.gridSize || gameState.gridSize
       : gameState.gridSize;
 
-    for (let i = 0; i < numApples; i++) {
-      let newFoodCell: Cell;
-      let validPosition = false;
+    // Determinar número de maçãs e limões com base no número de jogadores
+    // 3 maçãs para cada jogador e 1 limão a cada 3 jogadores
+    const roomData = currentRoom ? rooms.find(r => r.id === currentRoom) : null;
+    const playerCount = roomData?.players || 1;
+    const numApples = inRoomView ? playerCount * 3 : (gameState.snake.length > 10 ? 2 : 1);
+    const numLemons = inRoomView ? Math.floor(playerCount / 3) : 0;
 
+    // Gerar maçãs
+    for (let i = 0; i < numApples; i++) {
+      let validPosition = false;
+      
       while (!validPosition) {
         const x = Math.floor(Math.random() * gridSize);
         const y = Math.floor(Math.random() * gridSize);
@@ -277,28 +282,44 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (!isOccupied) {
           validPosition = true;
-          // 10% chance for lemon when score > 20
-          const isLemon = gameState.score > 20 && Math.random() < 0.1;
-          newFoodCell = { 
-            x, 
-            y, 
-            type: isLemon ? 'LEMON' : 'APPLE' 
-          };
-          newFood.push(newFoodCell);
+          newFood.push({ x, y, type: 'APPLE' });
+        }
+      }
+    }
+
+    // Gerar limões
+    for (let i = 0; i < numLemons; i++) {
+      let validPosition = false;
+      
+      while (!validPosition) {
+        const x = Math.floor(Math.random() * gridSize);
+        const y = Math.floor(Math.random() * gridSize);
+        
+        // Check if position is occupied
+        const isOccupied = gameState.snake.some(segment => segment.x === x && segment.y === y) ||
+                          newFood.some(food => food.x === x && food.y === y) ||
+                          bots.some(bot => bot.snake.some(segment => segment.x === x && segment.y === y));
+        
+        if (!isOccupied) {
+          validPosition = true;
+          newFood.push({ x, y, type: 'LEMON' });
         }
       }
     }
 
     return newFood;
-  }, [gameState.gridSize, gameState.snake, gameState.score, bots, inRoomView, currentRoom, rooms]);
+  }, [gameState.gridSize, gameState.snake, inRoomView, currentRoom, rooms, bots]);
 
   // Generate bots for a room
-  const generateBots = useCallback((roomId: number, numBots: number) => {
+  const generateBots = useCallback((roomId: number) => {
     const room = rooms.find(r => r.id === roomId);
     if (!room) return [];
     
     const botNames = ['BotPython', 'BotCobra', 'BotViper', 'BotAnaconda', 'BotMamba'];
     const newBots: Bot[] = [];
+    
+    // Sempre gerar exatamente 2 bots, como solicitado
+    const numBots = 2;
     
     for (let i = 0; i < numBots; i++) {
       // Place bot in random position
@@ -886,12 +907,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const room = rooms.find((r) => r.id === roomId);
       
       if (!room) {
-        toast.error('Room not found');
+        toast.error('Sala não encontrada');
         return;
       }
       
       if (room.players >= room.maxPlayers) {
-        toast.error('Room is full');
+        toast.error('Sala está cheia');
         return;
       }
       
@@ -905,12 +926,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         )
       );
       
-      // Generate bots for the room (1-5 bots randomly)
-      const numBots = Math.floor(Math.random() * 5) + 1;
-      const newBots = generateBots(roomId, numBots);
+      // Gerar sempre exatamente 2 bots para a sala
+      const newBots = generateBots(roomId);
       setBots(newBots);
       
-      toast.success(`Joined Room ${roomId} with ${numBots} bot snakes!`);
+      toast.success(`Entrou na Sala ${roomId} com ${newBots.length} cobrinhas bots!`);
     },
     [rooms, generateBots]
   );
