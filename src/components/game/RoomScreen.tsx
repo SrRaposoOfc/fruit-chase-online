@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { useGame } from '@/context/GameContext';
 import { Button } from '@/components/ui/button';
@@ -166,8 +165,10 @@ const RoomScreen: React.FC = () => {
     
     // Update room player count
     if (currentRoom) {
-      rooms.find(r => r.id === currentRoom)?.players && 
-        r.players > 0 && (r.players -= 1);
+      const room = rooms.find(room => room.id === currentRoom);
+      if (room && room.players > 0) {
+        room.players -= 1;
+      }
     }
   };
 
